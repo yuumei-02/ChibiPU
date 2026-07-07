@@ -40,7 +40,9 @@ static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
    switch (variant) {
-      case IV_NN: return T_InvalidVariant;
+      case IV_NN: [[fallthrough]];
+      case IV_RN: [[fallthrough]];
+      case IV_VN: return T_InvalidVariant;
 
       case IV_RR: {
          InstrRegister src_reg =  read_nibble(instruction->variant, 8);
@@ -69,7 +71,9 @@ static Trap execute_arithmatic(CPU* self, u8* main_memory, Instr* instruction) {
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
    switch (variant) {
-      case IV_NN: return T_InvalidVariant;
+      case IV_NN: [[fallthrough]];
+      case IV_RN: [[fallthrough]];
+      case IV_VN: return T_InvalidVariant;
 
       case IV_RR: {
          InstrRegister src_reg =  read_nibble(instruction->variant, 8);
@@ -124,7 +128,9 @@ static Trap execute_test(CPU* self, u8* main_memory, Instr* instruction) {
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
    switch (variant) {
-      case IV_NN: return T_InvalidVariant;
+      case IV_NN: [[fallthrough]];
+      case IV_RN: [[fallthrough]];
+      case IV_VN: return T_InvalidVariant;
 
       case IV_RR: {
          InstrRegister src_reg =  read_nibble(instruction->variant, 8);
@@ -152,6 +158,38 @@ static Trap execute_test(CPU* self, u8* main_memory, Instr* instruction) {
    return T_UnknownVariant;
 }
 
+static Trap execute_jump(CPU* self, u8* main_memory, Instr* instruction) {
+   InstrVariant variant = read_nibble(instruction->variant, 0);
+   InstrRegister dest_reg = read_nibble(instruction->variant, 4);
+
+   switch (variant) {
+      case IV_NN: [[fallthrough]];
+      case IV_RR: [[fallthrough]];
+      case IV_RV: return T_InvalidVariant;
+
+      case IV_RN: {
+         if (!InstrRegister_is_valid(dest_reg))
+            return T_UnknownRegister;
+
+         if (!((self->process_registers.rfl >> RFL_Zero) & 1))
+            self->process_registers.rip = self->argument_registers[dest_reg];
+         else
+            self->process_registers.rip += 4;
+      } return T_None;
+
+      case IV_VN: {
+         u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
+
+         if (!((self->process_registers.rfl >> RFL_Zero) & 1))
+            self->process_registers.rip = value;
+         else
+            self->process_registers.rip += 8;
+      } return T_None;
+   }
+
+   return T_UnknownVariant;
+}
+
 bool CPU_execute_next(CPU* self, void* main_memory) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert(main_memory != nullptr, "main_memory can't be null");
@@ -164,12 +202,14 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
 
       case IK_Mov: result = execute_mov(self, main_memory, instruction); goto handle_result;
 
-      case IK_Add: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
-      case IK_Sub: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
-      case IK_Mul: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
+      case IK_Add: [[fallthrough]];
+      case IK_Sub: [[fallthrough]];
+      case IK_Mul: [[fallthrough]];
       case IK_Div: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
 
       case IK_Test: result = execute_test(self, main_memory, instruction); goto handle_result;
+
+      case IK_Jne: result = execute_jump(self, main_memory, instruction); goto handle_result;
    }
 
    result = T_UnknownInstruction;

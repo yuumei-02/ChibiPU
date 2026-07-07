@@ -19,21 +19,10 @@ i32 main() {
       .memory_size = MEMORY_SIZE
    };
 
-   load_rv_instr(&assembler, IK_Mov, IR_RA0, 0xdeadbeaf);
-   load_rr_instr(&assembler, IK_Mov, IR_RA1, IR_RA0);
-
-   load_rv_instr(&assembler, IK_Mov, IR_RA3, 1);
-   load_rv_instr(&assembler, IK_Add, IR_RA3, 1);
-   load_rr_instr(&assembler, IK_Add, IR_RA3, IR_RA3);
-   load_rv_instr(&assembler, IK_Sub, IR_RA3, 2);
-   load_rv_instr(&assembler, IK_Mul, IR_RA3, 4);
-   load_rv_instr(&assembler, IK_Div, IR_RA3, 2);
-   load_rr_instr(&assembler, IK_Sub, IR_RA3, IR_RA3);
-   /* load_rr_instr(&assembler, IK_Div, IR_RA3, IR_RA3); */
-
-   load_rv_instr(&assembler, IK_Test, IR_RA4, 0);
-
-   load_nn_instr(&assembler, IK_Halt);
+/* 0x0: */ load_rv_instr(&assembler, IK_Add,  IR_RA0, 1);
+/* 0x4: */ load_rv_instr(&assembler, IK_Test, IR_RA0, 0xff);
+/* 0x8: */ load_vn_instr(&assembler, IK_Jne,  0x0);
+/* 0xC: */ load_nn_instr(&assembler, IK_Halt);
 
    while (!CPU_execute_next(&cpu, G_memory));
    CPU_debug_dump_registers(&cpu);

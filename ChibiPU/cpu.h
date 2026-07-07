@@ -35,7 +35,8 @@ typedef enum : u16 {
    IK_Div,
    IK_Mul,
 
-   IK_Test
+   IK_Test,
+   IK_Jne,
 } InstrKind;
 
 // 0000 0000 0000 0000
@@ -49,6 +50,8 @@ typedef enum : u16 {
 // [N] None
 typedef enum : u16 {
    IV_NN,
+   IV_RN,
+   IV_VN,
    IV_RR,
    IV_RV,
 } InstrVariant;

@@ -32,29 +32,53 @@ void load_nn_instr(Assembler* self, InstrKind instr_kind) {
    advance_write_head(self, 1);
 }
 
-void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister dest_register, InstrRegister src_register) {
+void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, InstrRegister arg1) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert((u64) self->write_head + 4 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
    instr->variant = set_nibble(instr->variant, 0, IV_RR);
-   instr->variant = set_nibble(instr->variant, 4, dest_register);
-   instr->variant = set_nibble(instr->variant, 8, src_register);
+   instr->variant = set_nibble(instr->variant, 4, arg0);
+   instr->variant = set_nibble(instr->variant, 8, arg1);
    advance_write_head(self, 1);
 }
 
-void load_rv_instr(Assembler* self, InstrKind instr_kind, InstrRegister dest_register, u32 value) {
+void load_rv_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, u32 arg1) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert((u64) self->write_head + 8 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
    instr->variant = set_nibble(instr->variant, 0, IV_RV);
-   instr->variant = set_nibble(instr->variant, 4, dest_register);
+   instr->variant = set_nibble(instr->variant, 4, arg0);
    advance_write_head(self, 1);
 
-   *((u32*) ptr_from_write_head(self)) = value;
+   *((u32*) ptr_from_write_head(self)) = arg1;
+   advance_write_head(self, 1);
+}
+
+void load_rn_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0) {
+   mcu_assert(self != nullptr, "self can't be null");
+   mcu_assert((u64) self->write_head + 4 < self->memory_size, "OOM");
+
+   Instr* instr = ptr_from_write_head(self);
+   instr->kind = instr_kind;
+   instr->variant = set_nibble(instr->variant, 0, IV_RN);
+   instr->variant = set_nibble(instr->variant, 4, arg0);
+   advance_write_head(self, 1);
+}
+
+void load_vn_instr(Assembler* self, InstrKind instr_kind, u32 arg0) {
+   mcu_assert(self != nullptr, "self can't be null");
+   mcu_assert((u64) self->write_head + 8 < self->memory_size, "OOM");
+
+   Instr* instr = ptr_from_write_head(self);
+   instr->kind = instr_kind;
+   instr->variant = set_nibble(instr->variant, 0, IV_VN);
+   advance_write_head(self, 1);
+
+   *((u32*) ptr_from_write_head(self)) = arg0;
    advance_write_head(self, 1);
 }
 
