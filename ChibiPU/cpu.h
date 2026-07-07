@@ -9,6 +9,7 @@ typedef enum {
    T_UnknownVariant,
    T_UnknownRegister,
    T_UnknownInstruction,
+   T_DivisionByZero
 } Trap;
 
 typedef struct {

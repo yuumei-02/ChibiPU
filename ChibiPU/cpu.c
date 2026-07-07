@@ -16,6 +16,7 @@ const cstr Trap_to_cstr(Trap self) {
       case T_UnknownVariant:     return "Unknown instruction variant";
       case T_UnknownRegister:    return "Unknown register";
       case T_UnknownInstruction: return "Unknown instruction";
+      case T_DivisionByZero:     return "DivisionByZero";
    }
 
    return "Unknown";
@@ -63,7 +64,7 @@ static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
    return T_UnknownVariant;
 }
 
-static Trap execute_add(CPU* self, u8* main_memory, Instr* instruction) {
+static Trap execute_arithmatic(CPU* self, u8* main_memory, Instr* instruction) {
    InstrVariant variant = read_nibble(instruction->variant, 0);
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
@@ -75,7 +76,20 @@ static Trap execute_add(CPU* self, u8* main_memory, Instr* instruction) {
          if (!InstrRegister_is_valid(dest_reg) || !InstrRegister_is_valid(src_reg))
             return T_UnknownRegister;
 
-         self->argument_registers[dest_reg] += self->argument_registers[src_reg];
+         switch (instruction->kind) {
+            case IK_Add: self->argument_registers[dest_reg] += self->argument_registers[src_reg]; break;
+            case IK_Sub: self->argument_registers[dest_reg] -= self->argument_registers[src_reg]; break;
+            case IK_Mul: self->argument_registers[dest_reg] *= self->argument_registers[src_reg]; break;
+
+            case IK_Div: {
+               if (self->argument_registers[dest_reg] == 0 || self->argument_registers[src_reg] == 0)
+                  return T_DivisionByZero;
+               self->argument_registers[dest_reg] /= self->argument_registers[src_reg];
+            } break;
+            
+            default: panic("unreachable");
+         }
+
          self->process_registers.rip += 4;
       } return T_None;
 
@@ -84,7 +98,20 @@ static Trap execute_add(CPU* self, u8* main_memory, Instr* instruction) {
             return T_UnknownRegister;
          u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
 
-         self->argument_registers[dest_reg] += value;
+         switch (instruction->kind) {
+            case IK_Add: self->argument_registers[dest_reg] += value; break;
+            case IK_Sub: self->argument_registers[dest_reg] -= value; break;
+            case IK_Mul: self->argument_registers[dest_reg] *= value; break;
+            
+            case IK_Div: {
+               if (self->argument_registers[dest_reg] == 0 || value == 0)
+                  return T_DivisionByZero;
+               self->argument_registers[dest_reg] /= value;
+            } break;
+            
+            default: panic("unreachable");
+         }
+         
          self->process_registers.rip += 8;
       } return T_None;
    }
@@ -104,10 +131,10 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
 
       case IK_Mov: result = execute_mov(self, main_memory, instruction); goto handle_result;
 
-      case IK_Add: result = execute_add(self, main_memory, instruction); goto handle_result;
-      case IK_Sub: mcu_todo("not yet implemented");
-      case IK_Mul: mcu_todo("not yet implemented");
-      case IK_Div: mcu_todo("not yet implemented");
+      case IK_Add: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
+      case IK_Sub: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
+      case IK_Mul: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
+      case IK_Div: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
    }
 
    result = T_UnknownInstruction;

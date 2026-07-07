@@ -25,6 +25,11 @@ i32 main() {
    load_rv_instr(&assembler, IK_Mov, IR_RA3, 1);
    load_rv_instr(&assembler, IK_Add, IR_RA3, 1);
    load_rr_instr(&assembler, IK_Add, IR_RA3, IR_RA3);
+   load_rv_instr(&assembler, IK_Sub, IR_RA3, 2);
+   load_rv_instr(&assembler, IK_Mul, IR_RA3, 4);
+   load_rv_instr(&assembler, IK_Div, IR_RA3, 2);
+   load_rr_instr(&assembler, IK_Sub, IR_RA3, IR_RA3);
+   /* load_rr_instr(&assembler, IK_Div, IR_RA3, IR_RA3); */
 
    load_nn_instr(&assembler, IK_Halt);
 
