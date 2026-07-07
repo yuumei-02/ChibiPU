@@ -3,10 +3,15 @@
 
 #include <mcu/core.h>
 #include <mcu/handlers.h>
-#include <mcu/io.h>
+
+#include "cpu.h"
 
 i32 main() {
-   println("zhyvannye miratte");
+   CPU cpu = {0};
+
+   cpu.argument_registers[3] = 0xdeadbeaf;
+   CPU_debug_dump_registers(&cpu);
+
    return 0;
 }
 
