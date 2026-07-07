@@ -8,6 +8,20 @@
 
 #include "cpu.h"
 
+bool CPU_execute_next(CPU* self, void* main_memory) {
+   mcu_assert(self != nullptr, "self can't be null");
+   mcu_assert(main_memory != nullptr, "main_memory can't be null");
+
+   Instr* instruction = (Instr*) ((u8*) main_memory + self->process_registers.rip);
+
+   switch (instruction->kind) {
+      case IK_Halt: return true;
+      case IK_Mov: mcu_todo("not yet implemented");
+   }
+
+   panic("unreachable");
+}
+
 void CPU_debug_dump_registers(CPU* self) {
    mcu_assert(self != nullptr, "self can't be null");
 

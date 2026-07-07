@@ -44,5 +44,7 @@ typedef struct {
 
 static_assert(sizeof(Instr) == sizeof(u32));
 
+/// Returns a boolean of whether or not to halt.
+bool CPU_execute_next(CPU* self, void* main_memory);
 void CPU_debug_dump_registers(CPU* self);
 
