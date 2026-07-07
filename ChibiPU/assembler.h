@@ -9,7 +9,7 @@ typedef struct {
 
 void load_program_from_file(const cstr path, void* memory, u32 memory_size, u32 offset);
 
-void load_instr_halt(Assembler* self);
-void load_instr_mov_rv(Assembler* self, InstrRegister dest_register, u32 value);
-void load_instr_mov_rr(Assembler* self, InstrRegister dest_register, u32 src_register);
+void load_nn_instr(Assembler* self, InstrKind instr_kind);
+void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister dest_register, InstrRegister src_register);
+void load_rv_instr(Assembler* self, InstrKind instr_kind, InstrRegister dest_register, u32 value);
 

@@ -6,6 +6,7 @@
 typedef enum {
    T_None,
    T_InvalidVariant,
+   T_UnknownVariant,
    T_UnknownRegister,
    T_UnknownInstruction,
 } Trap;
@@ -20,7 +21,13 @@ typedef struct {
 
 typedef enum : u16 {
    IK_Halt,
+
    IK_Mov,
+
+   IK_Add,
+   IK_Sub,
+   IK_Div,
+   IK_Mul,
 } InstrKind;
 
 // 0000 0000 0000 0000

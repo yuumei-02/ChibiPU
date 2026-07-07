@@ -13,6 +13,7 @@ const cstr Trap_to_cstr(Trap self) {
    switch (self) {
       case T_None:               return "None";
       case T_InvalidVariant:     return "Invalid instruction variant";
+      case T_UnknownVariant:     return "Unknown instruction variant";
       case T_UnknownRegister:    return "Unknown register";
       case T_UnknownInstruction: return "Unknown instruction";
    }
@@ -33,7 +34,7 @@ bool InstrRegister_is_valid(InstrRegister self) {
    return false;
 }
 
-static inline Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
+static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
    InstrVariant variant = read_nibble(instruction->variant, 0);
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
@@ -59,7 +60,36 @@ static inline Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
       } return T_None;
    }
 
-   panic("unreachable");
+   return T_UnknownVariant;
+}
+
+static Trap execute_add(CPU* self, u8* main_memory, Instr* instruction) {
+   InstrVariant variant = read_nibble(instruction->variant, 0);
+   InstrRegister dest_reg = read_nibble(instruction->variant, 4);
+
+   switch (variant) {
+      case IV_NN: return T_InvalidVariant;
+
+      case IV_RR: {
+         InstrRegister src_reg =  read_nibble(instruction->variant, 8);
+         if (!InstrRegister_is_valid(dest_reg) || !InstrRegister_is_valid(src_reg))
+            return T_UnknownRegister;
+
+         self->argument_registers[dest_reg] += self->argument_registers[src_reg];
+         self->process_registers.rip += 4;
+      } return T_None;
+
+      case IV_RV: {
+         if (!InstrRegister_is_valid(dest_reg))
+            return T_UnknownRegister;
+         u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
+
+         self->argument_registers[dest_reg] += value;
+         self->process_registers.rip += 8;
+      } return T_None;
+   }
+
+   return T_UnknownVariant;
 }
 
 bool CPU_execute_next(CPU* self, void* main_memory) {
@@ -71,7 +101,13 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
 
    switch (instruction->kind) {
       case IK_Halt: return true;
-      case IK_Mov:  result = execute_mov(self, main_memory, instruction); goto handle_result;
+
+      case IK_Mov: result = execute_mov(self, main_memory, instruction); goto handle_result;
+
+      case IK_Add: result = execute_add(self, main_memory, instruction); goto handle_result;
+      case IK_Sub: mcu_todo("not yet implemented");
+      case IK_Mul: mcu_todo("not yet implemented");
+      case IK_Div: mcu_todo("not yet implemented");
    }
 
    result = T_UnknownInstruction;
