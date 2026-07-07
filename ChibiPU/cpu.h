@@ -3,6 +3,13 @@
 
 #pragma once
 
+typedef enum {
+   T_None,
+   T_InvalidVariant,
+   T_UnknownRegister,
+   T_UnknownInstruction,
+} Trap;
+
 typedef struct {
    struct {
       u32 rip;
@@ -43,6 +50,9 @@ typedef struct {
 } Instr;
 
 static_assert(sizeof(Instr) == sizeof(u32));
+
+const cstr Trap_to_cstr(Trap self);
+bool InstrRegister_is_valid(InstrRegister self);
 
 /// Returns a boolean of whether or not to halt.
 bool CPU_execute_next(CPU* self, void* main_memory);
