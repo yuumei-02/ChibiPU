@@ -31,6 +31,8 @@ i32 main() {
    load_rr_instr(&assembler, IK_Sub, IR_RA3, IR_RA3);
    /* load_rr_instr(&assembler, IK_Div, IR_RA3, IR_RA3); */
 
+   load_rv_instr(&assembler, IK_Test, IR_RA4, 0);
+
    load_nn_instr(&assembler, IK_Halt);
 
    while (!CPU_execute_next(&cpu, G_memory));

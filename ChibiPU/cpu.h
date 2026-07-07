@@ -12,9 +12,14 @@ typedef enum {
    T_DivisionByZero
 } Trap;
 
+typedef enum {
+   RFL_Zero
+} RFL_Flag;
+
 typedef struct {
    struct {
       u32 rip;
+      u32 rfl;
    } process_registers;
 
    u32 argument_registers[6];
@@ -29,6 +34,8 @@ typedef enum : u16 {
    IK_Sub,
    IK_Div,
    IK_Mul,
+
+   IK_Test
 } InstrKind;
 
 // 0000 0000 0000 0000

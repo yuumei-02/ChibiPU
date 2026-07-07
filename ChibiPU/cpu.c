@@ -119,6 +119,39 @@ static Trap execute_arithmatic(CPU* self, u8* main_memory, Instr* instruction) {
    return T_UnknownVariant;
 }
 
+static Trap execute_test(CPU* self, u8* main_memory, Instr* instruction) {
+   InstrVariant variant = read_nibble(instruction->variant, 0);
+   InstrRegister dest_reg = read_nibble(instruction->variant, 4);
+
+   switch (variant) {
+      case IV_NN: return T_InvalidVariant;
+
+      case IV_RR: {
+         InstrRegister src_reg =  read_nibble(instruction->variant, 8);
+         if (!InstrRegister_is_valid(dest_reg) || !InstrRegister_is_valid(src_reg))
+            return T_UnknownRegister;
+
+         if (self->argument_registers[dest_reg] == self->argument_registers[src_reg])
+            self->process_registers.rfl |= (1 << RFL_Zero);
+         
+         self->process_registers.rip += 4;
+      } return T_None;
+
+      case IV_RV: {
+         if (!InstrRegister_is_valid(dest_reg))
+            return T_UnknownRegister;
+         u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
+
+         if (self->argument_registers[dest_reg] == value)
+            self->process_registers.rfl |= (1 << RFL_Zero);
+
+         self->process_registers.rip += 8;
+      } return T_None;
+   }
+
+   return T_UnknownVariant;
+}
+
 bool CPU_execute_next(CPU* self, void* main_memory) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert(main_memory != nullptr, "main_memory can't be null");
@@ -135,6 +168,8 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
       case IK_Sub: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
       case IK_Mul: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
       case IK_Div: result = execute_arithmatic(self, main_memory, instruction); goto handle_result;
+
+      case IK_Test: result = execute_test(self, main_memory, instruction); goto handle_result;
    }
 
    result = T_UnknownInstruction;
@@ -156,8 +191,8 @@ void CPU_debug_dump_registers(CPU* self) {
    println("+----------------+-------------------------------+");
    println("| [%08" PRIx32 "] RIP | [%08" PRIx32 "] RA0 [%08" PRIx32 "] RA3 |",
       self->process_registers.rip, self->argument_registers[0], self->argument_registers[3]);
-   println("|                | [%08" PRIx32 "] RA1 [%08" PRIx32 "] RA4 |",
-      self->argument_registers[1], self->argument_registers[4]);
+   println("| [%08" PRIx32 "] RFL | [%08" PRIx32 "] RA1 [%08" PRIx32 "] RA4 |",
+      self->process_registers.rfl, self->argument_registers[1], self->argument_registers[4]);
    println("|                | [%08" PRIx32 "] RA2 [%08" PRIx32 "] RA5 |",
       self->argument_registers[2], self->argument_registers[5]);
    println("+----------------+-------------------------------+");
