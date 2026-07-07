@@ -7,52 +7,21 @@
 
 #include "utils.h"
 #include "cpu.h"
+#include "assembler.h"
 
 #define MEMORY_SIZE (KiB * 4)
 static u8 G_memory[MEMORY_SIZE] = {0};
-static u32 G_program_head = 0;
-
-// @todo: Build an assembler that allows for program creation via both assembly source code and
-//        via the current create instruction procedures.
-Instr* get_program_head() {
-   return (Instr*) (G_memory + G_program_head);
-}
-
-void advance_program_head(u32 slots) {
-   G_program_head += sizeof(u32) * slots;
-}
-
-void push_halt() {
-   *get_program_head() = (Instr) { .kind = IK_Halt };
-   advance_program_head(1);
-}
-
-void push_mov_rv(InstrRegister dest_register, u32 value) {
-   Instr* instr = get_program_head();
-   instr->kind = IK_Mov;
-   instr->variant = set_nibble(instr->variant, 0, IV_RV);
-   instr->variant = set_nibble(instr->variant, 4, dest_register);
-   advance_program_head(1);
-
-   *((u32*) get_program_head()) = value;
-   advance_program_head(1);
-}
-
-void push_mov_rr(InstrRegister dest_register, u32 src_register) {
-   Instr* instr = get_program_head();
-   instr->kind = IK_Mov;
-   instr->variant = set_nibble(instr->variant, 0, IV_RR);
-   instr->variant = set_nibble(instr->variant, 4, dest_register);
-   instr->variant = set_nibble(instr->variant, 8, src_register);
-   advance_program_head(1);
-}
 
 i32 main() {
    CPU cpu = {0};
+   Assembler assembler = {
+      .memory = (u8*) G_memory,
+      .memory_size = MEMORY_SIZE
+   };
 
-   push_mov_rv(IR_RA0, 0xdfd3a1ff);
-   push_mov_rr(IR_RA1, IR_RA0);
-   push_halt();
+   load_instr_mov_rv(&assembler, IR_RA0, 0xdeadbeaf);
+   load_instr_mov_rr(&assembler, IR_RA1, IR_RA0);
+   load_instr_halt(&assembler);
 
    while (!CPU_execute_next(&cpu, G_memory));
    CPU_debug_dump_registers(&cpu);
