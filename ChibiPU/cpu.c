@@ -11,13 +11,20 @@
 
 static inline void execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
    InstrVariant variant = read_nibble(instruction->variant, 0);
+   InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
    switch (variant) {
       case IV_NN: mcu_todo("raise a trap");
-      case IV_RR: mcu_todo("not yet implemented");
+
+      case IV_RR: {
+         InstrRegister src_reg =  read_nibble(instruction->variant, 8);
+
+         self->argument_registers[dest_reg] = self->argument_registers[src_reg];
+         self->process_registers.rip += 4;
+      } return;
+
       case IV_RV: {
          // @todo: check if the dest register is valid and raise a trap if not
-         InstrRegister dest_reg = read_nibble(instruction->variant, 4);
          u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
 
          self->argument_registers[dest_reg] = value;
