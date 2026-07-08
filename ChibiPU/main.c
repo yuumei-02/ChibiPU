@@ -4,6 +4,7 @@
 #include <mcu/core.h>
 #include <mcu/handlers.h>
 #include <mcu/memory.h>
+#include <mcu/io.h>
 
 #include "utils.h"
 #include "cpu.h"
@@ -26,6 +27,11 @@ i32 main(i32 argc, cstr argv[]) {
 
    while (!CPU_execute_next(&cpu, G_memory));
    CPU_debug_dump_registers(&cpu);
+   println("");
+   println("+----------------------+");
+   println("| Slice of main memory |");
+   println("+----------------------+");
+   debug_print_memory_region(G_memory, 128);
 
    return 0;
 }
