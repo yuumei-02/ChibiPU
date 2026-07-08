@@ -107,12 +107,12 @@ static void check_define_registers() {
    if (G_registers_defined) return;
 
    G_registers = HashMap_new(InstrRegister)();
-   HashMap_put(InstrRegister)(&G_registers, "RA0", IR_RA0);
-   HashMap_put(InstrRegister)(&G_registers, "RA1", IR_RA1);
-   HashMap_put(InstrRegister)(&G_registers, "RA2", IR_RA2);
-   HashMap_put(InstrRegister)(&G_registers, "RA3", IR_RA3);
-   HashMap_put(InstrRegister)(&G_registers, "RA4", IR_RA4);
-   HashMap_put(InstrRegister)(&G_registers, "RA5", IR_RA5);
+   HashMap_put(InstrRegister)(&G_registers, "ra0", IR_RA0);
+   HashMap_put(InstrRegister)(&G_registers, "ra1", IR_RA1);
+   HashMap_put(InstrRegister)(&G_registers, "ra2", IR_RA2);
+   HashMap_put(InstrRegister)(&G_registers, "ra3", IR_RA3);
+   HashMap_put(InstrRegister)(&G_registers, "ra4", IR_RA4);
+   HashMap_put(InstrRegister)(&G_registers, "ra5", IR_RA5);
    G_registers_defined = true;
 }
 
@@ -120,7 +120,8 @@ typedef enum : i32 {
    TT_Eof,
    TT_Instr,
    TT_Reg,
-   TT_IntLiteral
+   TT_IntLiteral,
+   TT_Identifier
 } TokenType;
 
 typedef struct {
@@ -128,6 +129,7 @@ typedef struct {
    u32 z;
 
    union {
+      StringView identifier;
       InstrKind instr;
       InstrRegister reg;
       i64 int_literal;
@@ -160,6 +162,7 @@ static Lexer Lexer_new(cstr path) {
       .new_line_offsets = Vector_new(sizeof(u32)),
       .file_path = path,
    };
+   Vector_push_create(&self.new_line_offsets, ((u32) 0));
 
    FILE* file_handle = fopen(self.file_path, "rb");
    if (file_handle == nullptr || fseek(file_handle, 0, SEEK_END))
@@ -171,7 +174,7 @@ static Lexer Lexer_new(cstr path) {
 
    usize file_size = (usize) file_size_tmp;
    self.file_contents = mcu_malloc(file_size + 1);
-   self.file_contents[file_size] = '\0';
+   self.file_contents[file_size] = EOF;
    if (fread(self.file_contents, 1, file_size, file_handle) < file_size)
       goto file_io_failure;
    fclose(file_handle);
@@ -194,13 +197,95 @@ static void Lexer_delete(Lexer* self) {
    *self = (Lexer) {0};
 }
 
+static bool is_identifier_allowed(char c) {
+   return
+      (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9');
+}
+
 static Token Lexer_next(Lexer* self) {
    mcu_assert(self != nullptr, "self can't be null");
 
-   return (Token) {
+   LexerMode mode = LM_Trim;
+   StringView accumulated;
+   Token token = {
       .type = TT_Eof,
-      .z = 0
+      .z = self->z
    };
+
+   loop {
+      char current = self->file_contents[self->z++];
+      char peek = self->file_contents[self->z];
+      if (current == EOF) break;
+      if (current == '\n') {
+         Vector_push_create(&self->new_line_offsets, (self->z - 1));
+      }
+
+   reparse_char:
+      switch (mode) {
+         case LM_Trim: {
+            token.z = self->z - 1;
+            switch (current) {
+               case ',':  break;
+               case ' ':  break;
+               case '\n': break;
+
+               case '/': {
+                  if (peek == '/')
+                     mode = LM_Comment;
+               } break;
+
+               default: {
+                  accumulated = (StringView) {
+                     .chars = self->file_contents + token.z
+                  };
+                  mode = LM_Identifier;
+                  goto reparse_char;
+               }
+            }
+         } continue;
+
+         case LM_Identifier: {
+            accumulated.length++;
+
+            if (!is_identifier_allowed(peek)) {
+               char tmp = accumulated.chars[accumulated.length];
+               accumulated.chars[accumulated.length] = '\0';
+
+               InstrKind* instr = HashMap_get(InstrKind)(&G_instructions, accumulated.chars);
+               if (instr != nullptr) {
+                  accumulated.chars[accumulated.length] = tmp;
+                  token.type = TT_Instr,
+                  token.instr = *instr;
+                  return token;
+               }
+
+               InstrRegister* reg = HashMap_get(InstrRegister)(&G_registers, accumulated.chars);
+               if (reg != nullptr) {
+                  accumulated.chars[accumulated.length] = tmp;
+                  token.type = TT_Reg,
+                  token.reg = *reg;
+                  return token;
+               }
+
+               accumulated.chars[accumulated.length] = tmp;
+               token.type = TT_Identifier;
+               token.identifier = accumulated;
+               return token;
+            }
+         } continue;
+
+         case LM_Comment: {
+            if (current == '\n')
+               mode = LM_Trim;
+         } continue;
+      }
+
+      panic("unreachable");
+   }
+
+   return token;
 }
 
 static Loc Loc_from_offset(Lexer* lexer, u32 z) {
@@ -244,6 +329,9 @@ static void Token_debug_print(Token self, Lexer* lexer) {
       case TT_Instr:      println("Instr (%s)", InstrKind_to_cstr(self.instr)); return;
       case TT_Reg:        println("Reg (%s)", InstrRegister_to_cstr(self.reg)); return;
       case TT_IntLiteral: println("IntLiteral (%ld)", self.int_literal);        return;
+      case TT_Identifier: {
+         println("Identifier (%.*s)", (i32) self.identifier.length, self.identifier.chars);
+      } return;
    }
 
    panic("unreachable");
