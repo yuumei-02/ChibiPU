@@ -19,13 +19,10 @@ i32 main(i32 argc, cstr argv[]) {
       .memory_size = MEMORY_SIZE
    };
 
-   if (argc > 1)
-      load_program_from_file(&assembler, argv[1], 0);
-
-/* 0x0: */ load_rv_instr(&assembler, IK_Add,  IR_RA0, 1);
-/* 0x4: */ load_rv_instr(&assembler, IK_Test, IR_RA0, 0xff);
-/* 0x8: */ load_vn_instr(&assembler, IK_Jnz,  0x0);
-/* 0xC: */ load_nn_instr(&assembler, IK_Halt);
+   if (argc > 1) {
+      if (load_program_from_file(&assembler, argv[1], 0))
+         return 1;
+   }
 
    while (!CPU_execute_next(&cpu, G_memory));
    CPU_debug_dump_registers(&cpu);

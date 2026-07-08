@@ -7,7 +7,7 @@ typedef struct {
    u32 write_head;
 } Assembler;
 
-void load_program_from_file(Assembler* self, cstr path, u32 offset);
+bool load_program_from_file(Assembler* self, cstr path, u32 offset);
 
 void load_nn_instr(Assembler* self, InstrKind instr_kind);
 void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, InstrRegister arg1);

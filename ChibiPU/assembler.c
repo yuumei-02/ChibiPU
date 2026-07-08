@@ -384,20 +384,139 @@ static void Token_debug_print(Token self, Lexer* lexer) {
    panic("unreachable");
 }
 
-void load_program_from_file(Assembler* self, cstr path, u32 offset) {
+typedef struct {
+   bool panic;
+   bool failure;
+} ParseState;
+
+static inline void enter_panic(ParseState* state) {
+   state->panic = true;
+   state->failure = true;
+}
+
+static void parse_instruction(InstrKind instr, Assembler* assembler, Lexer* lexer, ParseState* state) {
+   switch (instr) {
+      // RR|RV instructions
+      case IK_Mov: [[fallthrough]];
+      case IK_Add: [[fallthrough]];
+      case IK_Sub: [[fallthrough]];
+      case IK_Mul: [[fallthrough]];
+      case IK_Div: [[fallthrough]];
+      case IK_Test: {
+         Token token = Lexer_next(lexer);
+         if (token.type != TT_Reg) {
+            Loc loc = Loc_from_offset(lexer, token.z);
+            eprintln("%s:%u:%u: error: Expected a register", lexer->file_path, loc.y, loc.x);
+            enter_panic(state);
+            return;
+         }
+
+         InstrRegister arg0 = token.reg;
+         token = Lexer_next(lexer);
+
+         switch (token.type) {
+            case TT_IntLiteral: {
+               switch (instr) {
+                  case IK_Add: [[fallthrough]];
+                  case IK_Sub: [[fallthrough]];
+                  case IK_Mul: [[fallthrough]];
+                  case IK_Div: {
+                     if (token.int_literal < 0) {
+                        Loc loc = Loc_from_offset(lexer, token.z);
+                        eprintln("%s:%u:%u: warning: The add, sub, mul and div instructions "
+                           "operate on unsigned values and thus, the int literal will be interpreted as such",
+                           lexer->file_path, loc.y, loc.x);
+                     }
+                  } break;
+
+                  default: break;
+               }
+               load_rv_instr(assembler, instr, arg0, (u32) token.int_literal);
+            } break;
+
+            case TT_Reg: {
+               load_rr_instr(assembler, instr, arg0, token.reg);
+            } break;
+
+            default: {
+               Loc loc = Loc_from_offset(lexer, token.z);
+               eprintln("%s:%u:%u: error: Expected either a register or an unsigned int literal",
+                  lexer->file_path, loc.y, loc.x);
+               enter_panic(state);
+               return;
+            }
+         }
+      } return;
+
+      // RN|VN instructions
+      case IK_Jz: [[fallthrough]];
+      case IK_Jnz: {
+         Token token = Lexer_next(lexer);
+
+         switch (token.type) {
+            case TT_Reg: {
+               load_rn_instr(assembler, instr, token.reg);
+            } break;
+
+            case TT_IntLiteral: {
+               if (token.int_literal < 0) {
+                  Loc loc = Loc_from_offset(lexer, token.z);
+                  eprintln("%s:%u:%u: warning: "
+                     "Memory addresses are always expected to be unsigned and thus, the int literal will be interpreted as such",
+                     lexer->file_path, loc.y, loc.x);
+               }
+               load_vn_instr(assembler, instr, (u32) token.int_literal);
+            } break;
+
+            default: {
+               Loc loc = Loc_from_offset(lexer, token.z);
+               eprintln("%s:%u:%u: error: Expected either a register or an int literal",
+                  lexer->file_path, loc.y, loc.x);
+               enter_panic(state);
+               return;
+            }
+         }
+      } return;
+
+      // NN instructions
+      case IK_Halt: {
+         load_nn_instr(assembler, instr);
+      } return;
+   }
+
+   panic("unreachable");
+}
+
+bool load_program_from_file(Assembler* self, cstr path, u32 offset) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert(path != nullptr, "path can't be null");
 
    self->write_head += offset;
    Lexer lexer = Lexer_new(path);
 
-   Token token;
-   do {
-      token = Lexer_next(&lexer);
-      Token_debug_print(token, &lexer);
-   } while(token.type != TT_Eof);
+   ParseState state = {0};
+   bool finished_parsing = false;
+
+   while (!finished_parsing) {
+      Token token = Lexer_next(&lexer);
+
+      switch (token.type) {
+         case TT_Instr: {
+            state.panic = false;
+            parse_instruction(token.instr, self, &lexer, &state);
+         } break;
+
+         case TT_Eof: finished_parsing = true; break;
+         default: {
+            if (state.panic) break;
+            Loc loc = Loc_from_offset(&lexer, token.z);
+            eprintln("%s:%u:%u: error: Expected an instruction", path, loc.y, loc.x);
+            enter_panic(&state);
+         }
+      }
+   }
 
    Lexer_delete(&lexer);
-   return;
+   return state.failure;
 }
 
