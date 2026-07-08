@@ -21,7 +21,7 @@ i32 main() {
 
 /* 0x0: */ load_rv_instr(&assembler, IK_Add,  IR_RA0, 1);
 /* 0x4: */ load_rv_instr(&assembler, IK_Test, IR_RA0, 0xff);
-/* 0x8: */ load_vn_instr(&assembler, IK_Jne,  0x0);
+/* 0x8: */ load_vn_instr(&assembler, IK_Jnz,  0x0);
 /* 0xC: */ load_nn_instr(&assembler, IK_Halt);
 
    while (!CPU_execute_next(&cpu, G_memory));

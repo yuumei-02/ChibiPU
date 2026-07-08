@@ -36,7 +36,8 @@ typedef enum : u16 {
    IK_Mul,
 
    IK_Test,
-   IK_Jne,
+   IK_Jnz,
+   IK_Jz,
 } InstrKind;
 
 // 0000 0000 0000 0000

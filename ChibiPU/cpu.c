@@ -171,19 +171,48 @@ static Trap execute_jump(CPU* self, u8* main_memory, Instr* instruction) {
          if (!InstrRegister_is_valid(dest_reg))
             return T_UnknownRegister;
 
-         if (!((self->process_registers.rfl >> RFL_Zero) & 1))
-            self->process_registers.rip = self->argument_registers[dest_reg];
-         else
-            self->process_registers.rip += 4;
+         bool zero_flag = ((self->process_registers.rfl >> RFL_Zero) & 1);
+
+         switch (instruction->kind) {
+            case IK_Jnz: {
+               if (!zero_flag)
+                  self->process_registers.rip = self->argument_registers[dest_reg];
+               else
+                  self->process_registers.rip += 4;
+            } break;
+
+            case IK_Jz: {
+               if (zero_flag)
+                  self->process_registers.rip = self->argument_registers[dest_reg];
+               else
+                  self->process_registers.rip += 4;
+            } break;
+
+            default: panic("unreachable");
+         }
       } return T_None;
 
       case IV_VN: {
          u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
+         bool zero_flag = ((self->process_registers.rfl >> RFL_Zero) & 1);
 
-         if (!((self->process_registers.rfl >> RFL_Zero) & 1))
-            self->process_registers.rip = value;
-         else
-            self->process_registers.rip += 8;
+         switch (instruction->kind) {
+            case IK_Jnz: {
+               if (!zero_flag)
+                  self->process_registers.rip = value;
+               else
+                  self->process_registers.rip += 8;
+            } break;
+
+            case IK_Jz: {
+               if (zero_flag)
+                  self->process_registers.rip = value;
+               else
+                  self->process_registers.rip += 8;
+            } break;
+
+            default: panic("unreachable");
+         }
       } return T_None;
    }
 
@@ -209,7 +238,8 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
 
       case IK_Test: result = execute_test(self, main_memory, instruction); goto handle_result;
 
-      case IK_Jne: result = execute_jump(self, main_memory, instruction); goto handle_result;
+      case IK_Jnz: [[fallthrough]];
+      case IK_Jz:  result = execute_jump(self, main_memory, instruction); goto handle_result;
    }
 
    result = T_UnknownInstruction;
