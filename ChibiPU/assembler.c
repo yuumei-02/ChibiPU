@@ -140,6 +140,7 @@ typedef enum {
    LM_Trim,
    LM_Identifier,
    LM_IntLiteral,
+   LM_HexLiteral,
    LM_Comment
 } LexerMode;
 
@@ -247,7 +248,13 @@ static Token Lexer_next(Lexer* self) {
 
                default: {
                   if (current >= '0' && current <= '9') {
-                     mode = LM_IntLiteral;
+                     if (peek == 'x') {
+                        mode = LM_HexLiteral;
+                        self->z++;
+                        continue;
+                     } else {
+                        mode = LM_IntLiteral;
+                     }
                      int_as_negative = false;
                   } else {
                      mode = LM_Identifier;
@@ -291,9 +298,24 @@ static Token Lexer_next(Lexer* self) {
          } continue;
 
          case LM_IntLiteral: {
+            token.int_literal *= 10;
             token.int_literal += current - '0';
 
             if (!(peek >= '0' && peek <= '9')) {
+               token.type = TT_IntLiteral;
+               if (int_as_negative)
+                  token.int_literal = -token.int_literal;
+               return token;
+            }
+         } continue;
+
+         case LM_HexLiteral: {
+            token.int_literal *= 16;
+            if      (current >= '0' && current <= '9') token.int_literal += (current - '0');
+            else if (current >= 'a' && current <= 'f') token.int_literal += (current - 'a') + 10;
+            else if (current >= 'A' && current <= 'F') token.int_literal += (current - 'a') + 10;
+
+            if (!(peek >= '0' && peek <= '9') && !(peek >= 'a' && peek <= 'f') && !(peek >= 'A' && peek <= 'F')) {
                token.type = TT_IntLiteral;
                if (int_as_negative)
                   token.int_literal = -token.int_literal;
