@@ -22,6 +22,35 @@ const cstr Trap_to_cstr(Trap self) {
    return "Unknown";
 }
 
+const cstr InstrKind_to_cstr(InstrKind self) {
+   switch (self) {
+      case IK_Halt: return "Halt";
+      case IK_Mov:  return "Mov";
+      case IK_Add:  return "Add";
+      case IK_Sub:  return "Sub";
+      case IK_Div:  return "Div";
+      case IK_Mul:  return "Mul";
+      case IK_Test: return "Test";
+      case IK_Jnz:  return "Jnz";
+      case IK_Jz:   return "Jz";
+   }
+
+   return "Unknown";
+}
+
+const cstr InstrRegister_to_cstr(InstrRegister self) {
+   switch (self) {
+      case IR_RA0: return "RA0";
+      case IR_RA1: return "RA1";
+      case IR_RA2: return "RA2";
+      case IR_RA3: return "RA3";
+      case IR_RA4: return "RA4";
+      case IR_RA5: return "RA5";
+   }
+
+   return "Unknown";
+}
+
 bool InstrRegister_is_valid(InstrRegister self) {
    switch (self) {
       case IR_RA0: return true;

@@ -71,6 +71,8 @@ typedef struct {
 static_assert(sizeof(Instr) == sizeof(u32));
 
 const cstr Trap_to_cstr(Trap self);
+const cstr InstrKind_to_cstr(InstrKind self);
+const cstr InstrRegister_to_cstr(InstrRegister self);
 bool InstrRegister_is_valid(InstrRegister self);
 
 /// Returns a boolean of whether or not to halt.

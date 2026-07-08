@@ -12,12 +12,15 @@
 #define MEMORY_SIZE (KiB * 4)
 static u8 G_memory[MEMORY_SIZE] = {0};
 
-i32 main() {
+i32 main(i32 argc, cstr argv[]) {
    CPU cpu = {0};
    Assembler assembler = {
       .memory = (u8*) G_memory,
       .memory_size = MEMORY_SIZE
    };
+
+   if (argc > 1)
+      load_program_from_file(&assembler, argv[1], 0);
 
 /* 0x0: */ load_rv_instr(&assembler, IK_Add,  IR_RA0, 1);
 /* 0x4: */ load_rv_instr(&assembler, IK_Test, IR_RA0, 0xff);

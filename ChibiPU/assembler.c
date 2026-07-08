@@ -2,19 +2,16 @@
 // See the LICENSE file for more information.
 
 #include <mcu/core.h>
+#include <mcu/io.h>
+#include <mcu/containers.h>
+#include <mcu/memory.h>
+
+#include <string.h>
+#include <errno.h>
 
 #include "utils.h"
 #include "cpu.h"
 #include "assembler.h"
-
-void load_program_from_file(const cstr path, void* memory, u32 memory_size, u32 offset) {
-   unused path;
-   unused memory;
-   unused memory_size;
-   unused offset;
-
-   mcu_todo("not yet implemented");
-}
 
 static inline Instr* ptr_from_write_head(Assembler* assembler) {
    return (Instr*) (assembler->memory + assembler->write_head);
@@ -22,11 +19,12 @@ static inline Instr* ptr_from_write_head(Assembler* assembler) {
 
 static inline void advance_write_head(Assembler* assembler, u32 slots) {
    assembler->write_head += sizeof(u32) * slots;
+   if (assembler->write_head >= assembler->memory_size)
+      panic("OOM");
 }
 
 void load_nn_instr(Assembler* self, InstrKind instr_kind) {
    mcu_assert(self != nullptr, "self can't be null");
-   mcu_assert((u64) self->write_head + 4 < self->memory_size, "OOM");
 
    *ptr_from_write_head(self) = (Instr) { .kind = instr_kind };
    advance_write_head(self, 1);
@@ -34,7 +32,6 @@ void load_nn_instr(Assembler* self, InstrKind instr_kind) {
 
 void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, InstrRegister arg1) {
    mcu_assert(self != nullptr, "self can't be null");
-   mcu_assert((u64) self->write_head + 4 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
@@ -46,7 +43,6 @@ void load_rr_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, In
 
 void load_rv_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, u32 arg1) {
    mcu_assert(self != nullptr, "self can't be null");
-   mcu_assert((u64) self->write_head + 8 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
@@ -60,7 +56,6 @@ void load_rv_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0, u3
 
 void load_rn_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0) {
    mcu_assert(self != nullptr, "self can't be null");
-   mcu_assert((u64) self->write_head + 4 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
@@ -71,7 +66,6 @@ void load_rn_instr(Assembler* self, InstrKind instr_kind, InstrRegister arg0) {
 
 void load_vn_instr(Assembler* self, InstrKind instr_kind, u32 arg0) {
    mcu_assert(self != nullptr, "self can't be null");
-   mcu_assert((u64) self->write_head + 8 < self->memory_size, "OOM");
 
    Instr* instr = ptr_from_write_head(self);
    instr->kind = instr_kind;
@@ -80,5 +74,155 @@ void load_vn_instr(Assembler* self, InstrKind instr_kind, u32 arg0) {
 
    *((u32*) ptr_from_write_head(self)) = arg0;
    advance_write_head(self, 1);
+}
+
+HashMap_hdr(InstrKind)
+HashMap_hdr(InstrRegister)
+
+HashMap_impl(InstrKind)
+HashMap_impl(InstrRegister)
+
+static HashMap(InstrKind) G_instructions;
+static HashMap(InstrRegister) G_registers;
+static bool G_instructions_defined = false;
+static bool G_registers_defined    = false;
+
+static void check_define_instructions() {
+   if (G_instructions_defined) return;
+
+   G_instructions = HashMap_new(InstrKind)();
+   HashMap_put(InstrKind)(&G_instructions, "halt", IK_Halt);
+   HashMap_put(InstrKind)(&G_instructions, "mov",  IK_Mov);
+   HashMap_put(InstrKind)(&G_instructions, "add",  IK_Add);
+   HashMap_put(InstrKind)(&G_instructions, "sub",  IK_Sub);
+   HashMap_put(InstrKind)(&G_instructions, "div",  IK_Div);
+   HashMap_put(InstrKind)(&G_instructions, "mul",  IK_Mul);
+   HashMap_put(InstrKind)(&G_instructions, "test", IK_Test);
+   HashMap_put(InstrKind)(&G_instructions, "jnz",  IK_Jnz);
+   HashMap_put(InstrKind)(&G_instructions, "jz",   IK_Jz);
+   G_instructions_defined = true;
+}
+
+static void check_define_registers() {
+   if (G_registers_defined) return;
+
+   G_registers = HashMap_new(InstrRegister)();
+   HashMap_put(InstrRegister)(&G_registers, "RA0", IR_RA0);
+   HashMap_put(InstrRegister)(&G_registers, "RA1", IR_RA1);
+   HashMap_put(InstrRegister)(&G_registers, "RA2", IR_RA2);
+   HashMap_put(InstrRegister)(&G_registers, "RA3", IR_RA3);
+   HashMap_put(InstrRegister)(&G_registers, "RA4", IR_RA4);
+   HashMap_put(InstrRegister)(&G_registers, "RA5", IR_RA5);
+   G_registers_defined = true;
+}
+
+typedef enum : i32 {
+   TT_Eof,
+   TT_Instr,
+   TT_Reg,
+   TT_IntLiteral
+} TokenType;
+
+typedef struct {
+   TokenType type;
+   u32 z;
+
+   union {
+      InstrKind instr;
+      InstrRegister reg;
+      i64 int_literal;
+   };
+} Token;
+
+typedef enum {
+   LM_Trim,
+   LM_Identifier,
+   LM_IntLiteral,
+   LM_Comment
+} LexerMode;
+
+typedef struct {
+   Vector new_line_offsets;
+   cstr file_path;
+   cstr file_contents;
+   u32 z;
+} Lexer;
+
+static Lexer Lexer_new(cstr path) {
+   mcu_assert(path != nullptr, "path can't be null");
+
+   Lexer self = {
+      .new_line_offsets = Vector_new(sizeof(u32)),
+      .file_path = path,
+   };
+
+   FILE* file_handle = fopen(self.file_path, "rb");
+   if (file_handle == nullptr || fseek(file_handle, 0, SEEK_END))
+      goto file_io_failure;
+
+   isize file_size_tmp = (isize) ftell(file_handle);
+   if (file_size_tmp < 0) goto file_io_failure;
+   rewind(file_handle);
+
+   usize file_size = (usize) file_size_tmp;
+   self.file_contents = mcu_malloc(file_size + 1);
+   self.file_contents[file_size] = '\0';
+   if (fread(self.file_contents, 1, file_size, file_handle) < file_size)
+      goto file_io_failure;
+   fclose(file_handle);
+
+   check_define_instructions();
+   check_define_registers();
+
+   return self;
+
+file_io_failure:
+   panic("[!] Failed to read from file \"%s\", reason: \"%s\"", strerror(errno));
+   return self;
+}
+
+static void Lexer_delete(Lexer* self) {
+   mcu_assert(self != nullptr, "self can't be null");
+
+   Vector_free(&self->new_line_offsets);
+   mcu_free(self->file_contents);
+   *self = (Lexer) {0};
+}
+
+static Token Lexer_next(Lexer* self) {
+   mcu_assert(self != nullptr, "self can't be null");
+
+   return (Token) {
+      .type = TT_Eof,
+      .z = 0
+   };
+}
+
+static void Token_debug_print(Token self) {
+   switch (self.type) {
+      case TT_Eof:        println("Eof");                                       return;
+      case TT_Instr:      println("Instr (%s)", InstrKind_to_cstr(self.instr)); return;
+      case TT_Reg:        println("Reg (%s)", InstrRegister_to_cstr(self.reg)); return;
+      case TT_IntLiteral: println("IntLiteral (%ld)", self.int_literal);        return;
+   }
+
+   panic("unreachable");
+}
+
+void load_program_from_file(Assembler* self, cstr path, u32 offset) {
+   mcu_assert(self != nullptr, "self can't be null");
+   mcu_assert(path != nullptr, "path can't be null");
+
+   self->write_head += offset;
+   Lexer lexer = Lexer_new(path);
+
+   Token token;
+   do {
+      token = Lexer_next(&lexer);
+      Token_debug_print(token);
+   } while(token.type != TT_Eof);
+
+   Lexer_delete(&lexer);
+   return;
 }
 
