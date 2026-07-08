@@ -148,6 +148,11 @@ typedef struct {
    u32 z;
 } Lexer;
 
+typedef struct {
+   u32 y;
+   u32 x;
+} Loc;
+
 static Lexer Lexer_new(cstr path) {
    mcu_assert(path != nullptr, "path can't be null");
 
@@ -198,7 +203,42 @@ static Token Lexer_next(Lexer* self) {
    };
 }
 
-static void Token_debug_print(Token self) {
+static Loc Loc_from_offset(Lexer* lexer, u32 z) {
+   mcu_assert(lexer != nullptr, "lexer can't be null");
+
+   Loc self = {
+      .y = 1,
+      .x = z
+   };
+
+   u32 prev_i = 0;
+   foreach (lexer->new_line_offsets, i) {
+      u32 zi = *(u32*) Vector_get(&lexer->new_line_offsets, i);
+
+      if (z < zi) {
+         self.y = i + 1;
+         self.x -= prev_i;
+         return self;
+      }
+
+      if (i + 1 >= lexer->new_line_offsets.length) {
+         self.y = i + 1;
+         self.x -= zi;
+         return self;
+      }
+
+      prev_i = zi;
+   }
+
+   return self;
+}
+
+static void Token_debug_print(Token self, Lexer* lexer) {
+   mcu_assert(lexer != nullptr, "lexer can't be null");
+
+   Loc loc = Loc_from_offset(lexer, self.z);
+   printf("%s:%u:%u: info: ", lexer->file_path, loc.y, loc.x);
+
    switch (self.type) {
       case TT_Eof:        println("Eof");                                       return;
       case TT_Instr:      println("Instr (%s)", InstrKind_to_cstr(self.instr)); return;
@@ -219,7 +259,7 @@ void load_program_from_file(Assembler* self, cstr path, u32 offset) {
    Token token;
    do {
       token = Lexer_next(&lexer);
-      Token_debug_print(token);
+      Token_debug_print(token, &lexer);
    } while(token.type != TT_Eof);
 
    Lexer_delete(&lexer);
