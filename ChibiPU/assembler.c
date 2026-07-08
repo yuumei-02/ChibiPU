@@ -214,6 +214,8 @@ static Token Lexer_next(Lexer* self) {
       .z = self->z
    };
 
+   bool int_as_negative = false;
+
    loop {
       char current = self->file_contents[self->z++];
       char peek = self->file_contents[self->z];
@@ -236,11 +238,23 @@ static Token Lexer_next(Lexer* self) {
                      mode = LM_Comment;
                } break;
 
+               case '-': {
+                  if (peek >= '0' && peek <= '9') {
+                     mode = LM_IntLiteral;
+                     int_as_negative = true;
+                  }
+               } break;
+
                default: {
-                  accumulated = (StringView) {
-                     .chars = self->file_contents + token.z
-                  };
-                  mode = LM_Identifier;
+                  if (current >= '0' && current <= '9') {
+                     mode = LM_IntLiteral;
+                     int_as_negative = false;
+                  } else {
+                     mode = LM_Identifier;
+                     accumulated = (StringView) {
+                        .chars = self->file_contents + token.z
+                     };
+                  }
                   goto reparse_char;
                }
             }
@@ -272,6 +286,17 @@ static Token Lexer_next(Lexer* self) {
                accumulated.chars[accumulated.length] = tmp;
                token.type = TT_Identifier;
                token.identifier = accumulated;
+               return token;
+            }
+         } continue;
+
+         case LM_IntLiteral: {
+            token.int_literal += current - '0';
+
+            if (!(peek >= '0' && peek <= '9')) {
+               token.type = TT_IntLiteral;
+               if (int_as_negative)
+                  token.int_literal = -token.int_literal;
                return token;
             }
          } continue;
