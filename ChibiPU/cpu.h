@@ -9,7 +9,8 @@ typedef enum {
    T_UnknownVariant,
    T_UnknownRegister,
    T_UnknownInstruction,
-   T_DivisionByZero
+   T_DivisionByZero,
+   T_OutOfBoundsAddress
 } Trap;
 
 typedef enum {
@@ -29,6 +30,8 @@ typedef enum : u16 {
    IK_Halt,
 
    IK_Mov,
+   IK_Load,
+   IK_Store,
 
    IK_Add,
    IK_Sub,
@@ -76,6 +79,6 @@ const cstr InstrRegister_to_cstr(InstrRegister self);
 bool InstrRegister_is_valid(InstrRegister self);
 
 /// Returns a boolean of whether or not to halt.
-bool CPU_execute_next(CPU* self, void* main_memory);
+bool CPU_execute_next(CPU* self, void* main_memory, u32 main_memory_size);
 void CPU_debug_dump_registers(CPU* self);
 

@@ -25,13 +25,13 @@ i32 main(i32 argc, cstr argv[]) {
          return 1;
    }
 
-   while (!CPU_execute_next(&cpu, G_memory));
+   while (!CPU_execute_next(&cpu, G_memory, MEMORY_SIZE));
    CPU_debug_dump_registers(&cpu);
    println("");
    println("+----------------------+");
    println("| Slice of main memory |");
    println("+----------------------+");
-   debug_print_memory_region(G_memory, 128);
+   debug_print_memory_region(G_memory, 126);
 
    return 0;
 }

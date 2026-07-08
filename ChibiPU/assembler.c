@@ -91,15 +91,17 @@ static void check_define_instructions() {
    if (G_instructions_defined) return;
 
    G_instructions = HashMap_new(InstrKind)();
-   HashMap_put(InstrKind)(&G_instructions, "halt", IK_Halt);
-   HashMap_put(InstrKind)(&G_instructions, "mov",  IK_Mov);
-   HashMap_put(InstrKind)(&G_instructions, "add",  IK_Add);
-   HashMap_put(InstrKind)(&G_instructions, "sub",  IK_Sub);
-   HashMap_put(InstrKind)(&G_instructions, "div",  IK_Div);
-   HashMap_put(InstrKind)(&G_instructions, "mul",  IK_Mul);
-   HashMap_put(InstrKind)(&G_instructions, "test", IK_Test);
-   HashMap_put(InstrKind)(&G_instructions, "jnz",  IK_Jnz);
-   HashMap_put(InstrKind)(&G_instructions, "jz",   IK_Jz);
+   HashMap_put(InstrKind)(&G_instructions, "halt",  IK_Halt);
+   HashMap_put(InstrKind)(&G_instructions, "mov",   IK_Mov);
+   HashMap_put(InstrKind)(&G_instructions, "load",  IK_Load);
+   HashMap_put(InstrKind)(&G_instructions, "store", IK_Store);
+   HashMap_put(InstrKind)(&G_instructions, "add",   IK_Add);
+   HashMap_put(InstrKind)(&G_instructions, "sub",   IK_Sub);
+   HashMap_put(InstrKind)(&G_instructions, "div",   IK_Div);
+   HashMap_put(InstrKind)(&G_instructions, "mul",   IK_Mul);
+   HashMap_put(InstrKind)(&G_instructions, "test",  IK_Test);
+   HashMap_put(InstrKind)(&G_instructions, "jnz",   IK_Jnz);
+   HashMap_put(InstrKind)(&G_instructions, "jz",    IK_Jz);
    G_instructions_defined = true;
 }
 
@@ -397,11 +399,13 @@ static inline void enter_panic(ParseState* state) {
 static void parse_instruction(InstrKind instr, Assembler* assembler, Lexer* lexer, ParseState* state) {
    switch (instr) {
       // RR|RV instructions
-      case IK_Mov: [[fallthrough]];
-      case IK_Add: [[fallthrough]];
-      case IK_Sub: [[fallthrough]];
-      case IK_Mul: [[fallthrough]];
-      case IK_Div: [[fallthrough]];
+      case IK_Mov:   [[fallthrough]];
+      case IK_Load:  [[fallthrough]];
+      case IK_Store: [[fallthrough]];
+      case IK_Add:   [[fallthrough]];
+      case IK_Sub:   [[fallthrough]];
+      case IK_Mul:   [[fallthrough]];
+      case IK_Div:   [[fallthrough]];
       case IK_Test: {
          Token token = Lexer_next(lexer);
          if (token.type != TT_Reg) {

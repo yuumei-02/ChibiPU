@@ -16,7 +16,8 @@ const cstr Trap_to_cstr(Trap self) {
       case T_UnknownVariant:     return "Unknown instruction variant";
       case T_UnknownRegister:    return "Unknown register";
       case T_UnknownInstruction: return "Unknown instruction";
-      case T_DivisionByZero:     return "DivisionByZero";
+      case T_DivisionByZero:     return "Division by zero";
+      case T_OutOfBoundsAddress: return "Out of bounds address";
    }
 
    return "Unknown";
@@ -24,15 +25,17 @@ const cstr Trap_to_cstr(Trap self) {
 
 const cstr InstrKind_to_cstr(InstrKind self) {
    switch (self) {
-      case IK_Halt: return "Halt";
-      case IK_Mov:  return "Mov";
-      case IK_Add:  return "Add";
-      case IK_Sub:  return "Sub";
-      case IK_Div:  return "Div";
-      case IK_Mul:  return "Mul";
-      case IK_Test: return "Test";
-      case IK_Jnz:  return "Jnz";
-      case IK_Jz:   return "Jz";
+      case IK_Halt:  return "Halt";
+      case IK_Mov:   return "Mov";
+      case IK_Load:  return "Load";
+      case IK_Store: return "Store";
+      case IK_Add:   return "Add";
+      case IK_Sub:   return "Sub";
+      case IK_Div:   return "Div";
+      case IK_Mul:   return "Mul";
+      case IK_Test:  return "Test";
+      case IK_Jnz:   return "Jnz";
+      case IK_Jz:    return "Jz";
    }
 
    return "Unknown";
@@ -64,7 +67,7 @@ bool InstrRegister_is_valid(InstrRegister self) {
    return false;
 }
 
-static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
+static Trap execute_load_store(CPU* self, u8* main_memory, u32 main_memory_size, Instr* instruction) {
    InstrVariant variant = read_nibble(instruction->variant, 0);
    InstrRegister dest_reg = read_nibble(instruction->variant, 4);
 
@@ -78,7 +81,20 @@ static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
          if (!InstrRegister_is_valid(dest_reg) || !InstrRegister_is_valid(src_reg))
             return T_UnknownRegister;
 
-         self->argument_registers[dest_reg] = self->argument_registers[src_reg];
+         switch (instruction->kind) {
+            case IK_Mov: {
+               self->argument_registers[dest_reg] = self->argument_registers[src_reg];
+            } break;
+
+            case IK_Load: {
+               if (self->argument_registers[src_reg] >= main_memory_size)
+                  return T_OutOfBoundsAddress;
+               self->argument_registers[dest_reg] = *((u32*) (main_memory + self->argument_registers[src_reg]));
+            } break;
+
+            default: panic("unreachable");
+         }
+
          self->process_registers.rip += 4;
       } return T_None;
 
@@ -87,7 +103,20 @@ static Trap execute_mov(CPU* self, u8* main_memory, Instr* instruction) {
             return T_UnknownRegister;
          u32 value = *(u32*) (main_memory + self->process_registers.rip + sizeof(u32));
 
-         self->argument_registers[dest_reg] = value;
+         switch (instruction->kind) {
+            case IK_Mov: {
+               self->argument_registers[dest_reg] = value;
+            } break;
+
+            case IK_Load: {
+               if (value >= main_memory_size)
+                  return T_OutOfBoundsAddress;
+               self->argument_registers[dest_reg] = *((u32*) (main_memory + value));
+            } break;
+
+            default: panic("unreachable");
+         }
+
          self->process_registers.rip += 8;
       } return T_None;
    }
@@ -248,7 +277,7 @@ static Trap execute_jump(CPU* self, u8* main_memory, Instr* instruction) {
    return T_UnknownVariant;
 }
 
-bool CPU_execute_next(CPU* self, void* main_memory) {
+bool CPU_execute_next(CPU* self, void* main_memory, u32 main_memory_size) {
    mcu_assert(self != nullptr, "self can't be null");
    mcu_assert(main_memory != nullptr, "main_memory can't be null");
 
@@ -258,7 +287,9 @@ bool CPU_execute_next(CPU* self, void* main_memory) {
    switch (instruction->kind) {
       case IK_Halt: return true;
 
-      case IK_Mov: result = execute_mov(self, main_memory, instruction); goto handle_result;
+      case IK_Store: mcu_todo("not yet implemented");
+      case IK_Load:  [[fallthrough]];
+      case IK_Mov:   result = execute_load_store(self, main_memory, main_memory_size, instruction); goto handle_result;
 
       case IK_Add: [[fallthrough]];
       case IK_Sub: [[fallthrough]];
